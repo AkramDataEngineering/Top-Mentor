@@ -1,0 +1,97 @@
+===== streamlit_app.py =====
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from utils.data_loader import load_data
+
+st.set_page_config(page_title="Zomato Dashboard", layout="wide")
+df = load_data()
+
+st.title("🍽️ Zomato Data Analysis Dashboard")
+st.markdown("Overview of restaurants across countries based on Zomato data.")
+
+# Sidebar Filters
+st.sidebar.header("Filter")
+country_list = df['Country'].unique()
+selected_country = st.sidebar.multiselect("Select Country", country_list, default=country_list[:3])
+
+filtered_df = df[df['Country'].isin(selected_country)]
+
+# KPIs
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Restaurants", filtered_df.shape[0])
+col2.metric("Total Countries", filtered_df['Country'].nunique())
+col3.metric("Total Cuisines", filtered_df['Cuisines'].nunique())
+
+# Bar chart - Restaurant count by country
+st.subheader("📌 Number of Restaurants by Country")
+country_counts = filtered_df['Country'].value_counts().reset_index()
+country_counts.columns = ['Country', 'Restaurants']
+fig = px.bar(country_counts, x='Country', y='Restaurants', color='Restaurants', height=400)
+st.plotly_chart(fig, use_container_width=True)
+
+# Pie chart - Ratings
+st.subheader("⭐ Rating Distribution")
+rating_counts = filtered_df['Aggregate rating'].value_counts().reset_index()
+rating_counts.columns = ['Rating', 'Count']
+fig2 = px.pie(rating_counts, values='Count', names='Rating', title="Rating Breakdown")
+st.plotly_chart(fig2, use_container_width=True)
+
+===== pages/Country Analysis.py =====
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from utils.data_loader import load_data
+
+df = load_data()
+st.title("🌍 Country-wise Restaurant Analysis")
+
+country_df = df.groupby('Country').agg({
+    'Restaurant Name': 'count',
+    'Votes': 'sum',
+    'Average Cost for two': 'mean'
+}).reset_index()
+
+st.dataframe(country_df)
+
+# Visual
+fig = px.bar(country_df.sort_values("Restaurant Name", ascending=False),
+             x='Country', y='Restaurant Name', title='Restaurants by Country')
+st.plotly_chart(fig, use_container_width=True)
+
+===== pages/Cuisine Analysis.py =====
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from utils.data_loader import load_data
+
+df = load_data()
+st.title("🍝 Cuisine Popularity Analysis")
+
+# Explode multiple cuisines into separate rows
+df = df.dropna(subset=['Cuisines'])
+df['Cuisines'] = df['Cuisines'].apply(lambda x: x.split(',')[0])  # Take the primary cuisine
+cuisine_df = df['Cuisines'].value_counts().reset_index()
+cuisine_df.columns = ['Cuisine', 'Count']
+
+st.subheader("Top 10 Cuisines")
+top10 = cuisine_df.head(10)
+fig = px.bar(top10, x='Cuisine', y='Count', color='Count', height=400)
+st.plotly_chart(fig, use_container_width=True)
+
+# Optional table
+st.dataframe(top10)
+
+===== utils/data_loader.py =====
+import pandas as pd
+import streamlit as st
+
+@st.cache_data
+def load_data():
+    df = pd.read_csv('data/zomato.csv', encoding='latin-1')
+    return df
+
+===== requirements.txt =====
+streamlit
+pandas
+plotly
